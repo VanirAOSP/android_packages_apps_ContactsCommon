@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2016 The CyanogenMod Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.cyanogen.lookup.phonenumber.provider;
 
 import android.content.Context;
@@ -67,7 +83,9 @@ public class LookupProviderImpl implements LookupProvider {
                 @Override
                 public void onChange(boolean selfChange, Uri uri) {
                     if (uri != null) {
-                        mProviderInfo = CallerInfoHelper.getActiveProviderInfo(mContext);
+                        synchronized (LookupProviderImpl.this) {
+                            mProviderInfo = CallerInfoHelper.getActiveProviderInfo(mContext);
+                        }
                     }
                 }
             };
@@ -91,36 +109,58 @@ public class LookupProviderImpl implements LookupProvider {
         if (!TextUtils.isEmpty(number) && mAmbientClient != null &&
                 (mAmbientClient.isConnecting() || mAmbientClient.isConnected())) {
 
+            int originCode;
+            switch(request.mRequestOrigin) {
+                case INCOMING_CALL:
+                    originCode = com.cyanogen.ambient.callerinfo.extension.LookupRequest.ORIGIN_CODE_INCOMING_CALL;
+                    break;
+                case OUTGOING_CALL:
+                    originCode = com.cyanogen.ambient.callerinfo.extension.LookupRequest.ORIGIN_CODE_OUTGOING_CALL;
+                    break;
+                case INCOMING_SMS:
+                    originCode = com.cyanogen.ambient.callerinfo.extension.LookupRequest.ORIGIN_CODE_INCOMING_SMS;
+                    break;
+                case OUTGOING_SMS:
+                    originCode = com.cyanogen.ambient.callerinfo.extension.LookupRequest.ORIGIN_CODE_OUTGOING_SMS;
+                    break;
+                default:
+                    originCode = com.cyanogen.ambient.callerinfo.extension.LookupRequest.ORIGIN_CODE_HISTORY;
+                    break;
+            }
             com.cyanogen.ambient.callerinfo.extension.LookupRequest ambientRequest =
-                    new com.cyanogen.ambient.callerinfo.extension.LookupRequest(number,
-                    com.cyanogen.ambient.callerinfo.extension.LookupRequest.ORIGIN_CODE_HISTORY);
+                    new com.cyanogen.ambient.callerinfo.extension.LookupRequest(number, originCode);
             PendingResult<LookupByNumberResult> result = CallerInfoServices.CallerInfoApi.
                     lookupByNumber(mAmbientClient, ambientRequest);
 
             result.setResultCallback(new ResultCallback<LookupByNumberResult>() {
                 @Override
                 public void onResult(LookupByNumberResult lookupByNumberResult) {
+                    synchronized (LookupProviderImpl.this) {
+                        if (mProviderInfo  == null) {
+                            // lookup provider has been inactivated
+                            return;
+                        }
 
-                    if (!lookupByNumberResult.getStatus().isSuccess()) {
-                        return;
+                        if (!lookupByNumberResult.getStatus().isSuccess()) {
+                            return;
+                        }
+
+                        CallerInfo callerInfo = lookupByNumberResult.getCallerInfo();
+                        if (!hasUsableInfo(callerInfo)) {
+                            return;
+                        }
+
+                        // map caller info to LookupResponse
+                        LookupResponse lookupResponse = new LookupResponse();
+                        lookupResponse.mProviderName = mProviderInfo.getTitle();
+                        lookupResponse.mName = callerInfo.getName();
+                        lookupResponse.mNumber = callerInfo.getNumber();
+                        lookupResponse.mAddress = callerInfo.getAddress();
+                        lookupResponse.mPhotoUrl = callerInfo.getPhotoUrl();
+                        lookupResponse.mAttributionLogo = mProviderInfo.getBadgeLogo();
+                        lookupResponse.mSpamCount = callerInfo.getSpamCount();
+                        request.mCallback.onNewInfo(request, lookupResponse);
                     }
-                    CallerInfo callerInfo = lookupByNumberResult.getCallerInfo();
-
-                    if (!hasUsableInfo(callerInfo)) {
-                        return;
-                    }
-
-                    // map caller info to LookupResponse
-                    LookupResponse lookupResponse = new LookupResponse();
-                    lookupResponse.mProviderName = mProviderInfo.getTitle();
-                    lookupResponse.mName = callerInfo.getName();
-                    lookupResponse.mNumber = callerInfo.getNumber();
-                    lookupResponse.mAddress = callerInfo.getAddress();
-                    lookupResponse.mPhotoUrl = callerInfo.getPhotoUrl();
-                    lookupResponse.mAttributionLogo = mProviderInfo.getBadgeLogo();
-                    lookupResponse.mSpamCount = callerInfo.getSpamCount();
-
-                    request.mCallback.onNewInfo(request, lookupResponse);
                 }
             });
         }
@@ -209,6 +249,14 @@ public class LookupProviderImpl implements LookupProvider {
             provider = providerInfo.getTitle();
         }
         return provider;
+    }
+
+    @Override
+    public synchronized String getUniqueIdentifier() {
+        if (mProviderInfo != null) {
+            return mProviderInfo.getPackageName();
+        }
+        return null;
     }
 
 }
