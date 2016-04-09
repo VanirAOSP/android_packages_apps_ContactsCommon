@@ -35,11 +35,13 @@ import android.text.SpannableString;
 import android.text.TextUtils;
 import android.text.TextUtils.TruncateAt;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.widget.AbsListView.SelectionBoundsAdjuster;
 import android.widget.CheckBox;
 import android.widget.ImageView;
@@ -456,8 +458,7 @@ public class ContactListItemView extends ViewGroup
 
         // Calculate height including padding.
         int height = (mNameTextViewHeight + mPhoneticNameTextViewHeight +
-                mLabelAndDataViewMaxHeight +
-                mSnippetTextViewHeight + mStatusTextViewHeight);
+                mLabelAndDataViewMaxHeight + mSnippetTextViewHeight + mStatusTextViewHeight);
 
         // Make sure the height is at least as high as the photo
         height = Math.max(height, mPhotoViewHeight + getPaddingBottom() + getPaddingTop());
@@ -542,7 +543,7 @@ public class ContactListItemView extends ViewGroup
             // Photo is the left most view. All the other Views should on the right of the photo.
             if (photoView != null) {
                 // Center the photo vertically
-                final int photoTop = topBound + (bottomBound - topBound - mPhotoViewHeight) / 2;
+                int photoTop = (topBound + (bottomBound - topBound - mPhotoViewHeight) / 2);
                 photoView.layout(
                         leftBound,
                         photoTop,
@@ -676,6 +677,7 @@ public class ContactListItemView extends ViewGroup
                     rightBound,
                     textTopBound + mLabelAndDataViewMaxHeight);
         }
+
         if (isVisible(mLabelView) || isVisible(mDataView)) {
             textTopBound += mLabelAndDataViewMaxHeight;
         }
@@ -1524,6 +1526,16 @@ public class ContactListItemView extends ViewGroup
         photo.setImageDrawable(getContext().getDrawable(drawableId));
         photo.setImageTintList(ColorStateList.valueOf(
                 getContext().getColor(R.color.search_shortcut_icon_color)));
+    }
+
+    /**
+     * Set drawable directly for the drawable of the photo view.
+     *
+     * @param d drawable of drawable resource.
+     */
+    public void setDrawable(Drawable d) {
+        ImageView photo = getPhotoView();
+        photo.setImageDrawable(d);
     }
 
     @Override

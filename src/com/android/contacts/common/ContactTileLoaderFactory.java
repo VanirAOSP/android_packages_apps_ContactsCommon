@@ -55,6 +55,9 @@ public final class ContactTileLoaderFactory {
     // contact id for strequent items, we thus have to use Phone.contact_id instead.
     public final static int CONTACT_ID_FOR_DATA = 12;
 
+    public final static int PHONE_NUMBER_MIMETYPE = 13;
+
+
     private static final String[] COLUMNS = new String[] {
         Contacts._ID, // ..........................................0
         Contacts.DISPLAY_NAME, // .................................1
@@ -88,7 +91,8 @@ public final class ContactTileLoaderFactory {
         Phone.LABEL, // ............................................9
         Phone.IS_SUPER_PRIMARY, //.................................10
         Contacts.PINNED, // .......................................11
-        Phone.CONTACT_ID //........................................12
+        Phone.CONTACT_ID, //.......................................12
+        Phone.MIMETYPE //..........................................13
     };
 
     private static final String STARRED_ORDER = Contacts.DISPLAY_NAME+" COLLATE NOCASE ASC";
@@ -107,6 +111,25 @@ public final class ContactTileLoaderFactory {
             builder.appendQueryParameter(RawContacts.ACCOUNT_NAME, disabledSimFilter);
             builder.appendQueryParameter(SimContactsConstants
                     .WITHOUT_SIM_FLAG, "true");
+        }
+        return new CursorLoader(context, builder.build(), COLUMNS_PHONE_ONLY, null, null, null);
+    }
+
+    public static CursorLoader createStrequentCallableExtendedLoader(Context context,
+            String additionalQueryParameterKey, String additionalQueryParameterValue) {
+        Uri.Builder builder = Contacts.CONTENT_STREQUENT_URI.buildUpon();
+        builder.appendQueryParameter(ContactsContract.STREQUENT_PHONE_ONLY, "true");
+        // Do not show contacts in disabled SIM card
+        String disabledSimFilter = MoreContactUtils.getDisabledSimFilter();
+        if (!TextUtils.isEmpty(disabledSimFilter)) {
+            builder.appendQueryParameter(RawContacts.ACCOUNT_NAME, disabledSimFilter);
+            builder.appendQueryParameter(SimContactsConstants
+                    .WITHOUT_SIM_FLAG, "true");
+        }
+        if (!TextUtils.isEmpty(additionalQueryParameterKey) &&
+                !TextUtils.isEmpty(additionalQueryParameterValue)) {
+            builder.appendQueryParameter(additionalQueryParameterKey,
+                    additionalQueryParameterValue);
         }
         return new CursorLoader(context, builder.build(), COLUMNS_PHONE_ONLY, null, null, null);
     }

@@ -20,8 +20,10 @@ import android.content.ContentUris;
 import android.content.Context;
 import android.content.CursorLoader;
 import android.database.Cursor;
+import android.database.DatabaseUtils;
 import android.net.Uri;
 import android.net.Uri.Builder;
+import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.Callable;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
@@ -37,6 +39,7 @@ import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 
+import android.widget.TextView;
 import com.android.contacts.common.GeoUtil;
 import com.android.contacts.common.R;
 import com.android.contacts.common.ContactPhotoManager.DefaultImageRequest;
@@ -49,6 +52,8 @@ import com.android.contacts.common.model.account.SimAccountType;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.cyanogen.ambient.incall.CallableConstants.ADDITIONAL_CALLABLE_MIMETYPES_PARAM_KEY;
 
 /**
  * A cursor adapter for the {@link Phone#CONTENT_ITEM_TYPE} and
@@ -102,6 +107,7 @@ public class PhoneNumberListAdapter extends ContactEntryListAdapter {
             Phone.PHOTO_THUMBNAIL_URI,          // 8
             RawContacts.ACCOUNT_TYPE,           // 9
             RawContacts.ACCOUNT_NAME,           // 10
+            Phone.MIMETYPE,                     // 11
         };
 
         public static final String[] PROJECTION_ALTERNATIVE = new String[] {
@@ -116,6 +122,7 @@ public class PhoneNumberListAdapter extends ContactEntryListAdapter {
             Phone.PHOTO_THUMBNAIL_URI,          // 8
             RawContacts.ACCOUNT_TYPE,           // 9
             RawContacts.ACCOUNT_NAME,           // 10
+            Phone.MIMETYPE,                     // 11
         };
 
         public static final int PHONE_ID                = 0;
@@ -129,6 +136,7 @@ public class PhoneNumberListAdapter extends ContactEntryListAdapter {
         public static final int PHOTO_URI               = 8;
         public static final int PHONE_ACCOUNT_TYPE      = 9;
         public static final int PHONE_ACCOUNT_NAME      = 10;
+        public static final int PHONE_MIME_TYPE         = 11;
     }
 
     private static final String IGNORE_NUMBER_TOO_LONG_CLAUSE =
@@ -196,6 +204,11 @@ public class PhoneNumberListAdapter extends ContactEntryListAdapter {
                 builder.appendPath(query);      // Builder will encode the query
                 builder.appendQueryParameter(ContactsContract.DIRECTORY_PARAM_KEY,
                         String.valueOf(directoryId));
+                String mimeTypes = getAdditionalMimeTypeSearch();
+                if (mimeTypes != null) {
+                    builder.appendQueryParameter(ADDITIONAL_CALLABLE_MIMETYPES_PARAM_KEY,
+                            mimeTypes);
+                }
                 if (isRemoteDirectoryQuery) {
                     builder.appendQueryParameter(ContactsContract.LIMIT_PARAM_KEY,
                             String.valueOf(getDirectoryResultLimit(getDirectoryById(directoryId))));
@@ -303,6 +316,16 @@ public class PhoneNumberListAdapter extends ContactEntryListAdapter {
     public String getPhoneNumber(int position) {
         final Cursor item = (Cursor)getItem(position);
         return item != null ? item.getString(PhoneQuery.PHONE_NUMBER) : null;
+    }
+
+    public String getMimeType(int position) {
+        final Cursor item = (Cursor)getItem(position);
+        return item != null ? item.getString(PhoneQuery.PHONE_MIME_TYPE) : null;
+    }
+
+    public String getUsername(int position) {
+        final Cursor item = (Cursor)getItem(position);
+        return item != null ? item.getString(item.getColumnIndex("callable_extra_number")) : null;
     }
 
     /**
@@ -431,14 +454,23 @@ public class PhoneNumberListAdapter extends ContactEntryListAdapter {
         bindPhoneNumber(view, cursor, directory.isDisplayNumber());
     }
 
+
+    public String getLabelType(Cursor c, int type) {
+        return null;
+    }
+
     protected void bindPhoneNumber(ContactListItemView view, Cursor cursor, boolean displayNumber) {
         CharSequence label = null;
         if (displayNumber &&  !cursor.isNull(PhoneQuery.PHONE_TYPE)) {
             final int type = cursor.getInt(PhoneQuery.PHONE_TYPE);
             final String customLabel = cursor.getString(PhoneQuery.PHONE_LABEL);
 
+            label = getLabelType(cursor, type);
+
             // TODO cache
-            label = Phone.getTypeLabel(getContext().getResources(), type, customLabel);
+            if (label == null) {
+                label = Phone.getTypeLabel(getContext().getResources(), type, customLabel);
+            }
         }
         view.setLabel(label);
         final String text;
@@ -613,4 +645,5 @@ public class PhoneNumberListAdapter extends ContactEntryListAdapter {
         }
         return disabledSimName;
     }
+
 }
