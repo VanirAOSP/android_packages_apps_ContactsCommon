@@ -127,7 +127,7 @@ public class AccountSelectionUtil {
             DialogInterface.OnClickListener onClickListener,
             DialogInterface.OnCancelListener onCancelListener, boolean includeSIM) {
         final AccountTypeManager accountTypes = AccountTypeManager.getInstance(activity);
-        final List<AccountWithDataSet> writableAccountList;
+        List<AccountWithDataSet> writableAccountList = accountTypes.getAccounts(true);
         if (includeSIM) {
             writableAccountList = accountTypes.getAccounts(true);
         } else {
@@ -200,15 +200,10 @@ public class AccountSelectionUtil {
 
    public static void doImport(Activity activity, int resId, AccountWithDataSet account,
             int subscriptionId) {
-        switch (resId) {
-            case R.string.import_from_sim: {
-                doImportFromSim(activity, account, subscriptionId);
-                break;
-            }
-            case R.string.import_from_vcf_file: {
-                doImportFromVcfFile(activity, account);
-                break;
-            }
+        if (resId == R.string.import_from_sim) {
+            doImportFromSim(activity, account, subscriptionId);
+        } else if (resId == R.string.import_from_vcf_file) {
+            doImportFromVcfFile(activity, account);
         }
     }
 
